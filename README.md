@@ -27,34 +27,42 @@ Realizar un entorno controlado de reconocimiento, análisis de infraestructura y
 
 ---
 
-## Fases y Herramientas
+## Ramas y Herramientas
 
 | Rama | Lab | Herramienta | Fase | Descripción |
 |---|---|---|---|---|
-| [`lab-nslookup`](../../tree/lab-nslookup) | Lab 3 | nslookup | Reconocimiento Pasivo | Resolución DNS básica: IP, NS, PTR |
-| [`lab-dig`](../../tree/lab-dig) | Lab 3 | dig + whois | Reconocimiento Pasivo | Análisis DNS avanzado, DNSSEC, registro del dominio |
-| [`lab-httrack`](../../tree/lab-httrack) | Lab 2 | HTTrack | Reconocimiento Pasivo | Clonación del sitio y análisis de exposición frontend |
-| [`lab-maltego`](../../tree/lab-maltego) | Lab 4 | Maltego | Reconocimiento OSINT | Grafos de relaciones: IP, NS, subdominios, correos |
-| [`lab-burpsuite`](../../tree/lab-burpsuite) | Lab 5 | Burp Suite | Análisis Web | Interceptación HTTP, análisis de autenticación |
-| [`lab-injection`](../../tree/lab-injection) | Lab 7 | OWASP ZAP | Análisis de Vulnerabilidades | Spider, Alerts, Active Scan, HTTP Sessions |
+| [`lab-dig`](../../tree/lab-dig) | Lab 3 | nslookup + dig + whois | Reconocimiento Pasivo | Resolución DNS, análisis DNSSEC, SOA, TTL y registro del dominio |
+| [`lab-httrack`](../../tree/lab-httrack) | Lab 2 | HTTrack Website Copier | Reconocimiento Pasivo | Clonación del sitio y análisis de exposición frontend con grep |
+| [`lab-maltego`](../../tree/lab-maltego) | Lab 4 | Maltego CE | Reconocimiento OSINT | Grafos de relaciones: IP, NS, subdominios, correos, Whois |
+| [`lab-burpsuite`](../../tree/lab-burpsuite) | Lab 5 | Burp Suite Community | Análisis Web | Interceptación HTTP/HTTPS, análisis de autenticación y cookies |
+| [`lab-injection`](../../tree/lab-injection) | Lab 7 | OWASP ZAP 2.17.0 | Análisis de Vulnerabilidades | Spider, AJAX Spider, Active Scan, HTTP Sessions, Alerts |
 
 ---
 
 ## Metodología Aplicada
 
 ```
-Reconocimiento Pasivo → Análisis OSINT → Clonación del sitio
-        ↓                                         ↓
-  nslookup / dig                              HTTrack
-  whois / DNSSEC                         Exposición frontend
-        ↓
-   Maltego (OSINT visual)
-        ↓
-Análisis de Tráfico HTTP → Detección de Vulnerabilidades
-        ↓                           ↓
-    Burp Suite                  OWASP ZAP
-  Interceptación              Spider + Active Scan
-  Autenticación               Alerts + Sessions
+Reconocimiento Pasivo ──────────────────────── Clonación del sitio
+        │                                               │
+  nslookup / dig / whois                           HTTrack
+  IP · NS · PTR · DNSSEC · SOA               Exposición frontend
+        │                                       grep: api|token|key
+        ▼
+   Maltego CE (OSINT visual)
+   Transforms: To IP · To NS · To MX
+   To Whois · To Email Address
+        │
+        ▼
+Análisis de Tráfico HTTP ──────────── Detección de Vulnerabilidades
+        │                                           │
+    Burp Suite                                  OWASP ZAP
+  Proxy 127.0.0.1:8080                   Spider + Active Scan
+  Intercept · Repeater                   Alerts + HTTP Sessions
+  POST auth · Cookies                    CSP · Cookies · Banner
+        │                                           │
+        └──────────────── Pruebas de Inyección ─────┘
+                          SQL Injection (PortSwigger)
+                          XSS Almacenado (Juice Shop)
 ```
 
 ---
@@ -74,28 +82,44 @@ Este laboratorio sigue el **Framework PIAP-LLM** — Prompt Injection Analysis a
 
 ## Qué se Analizó
 
-- Subdominios expuestos
-- IPs públicas y proveedor de hosting
-- Tecnologías del servidor
-- Certificados SSL y DNSSEC
-- Headers HTTP de seguridad
-- Cookies y tokens de sesión
+- Subdominios expuestos y registros DNS públicos
+- IPs públicas, proveedor de hosting y configuración DNSSEC
+- Tecnologías del servidor y certificados SSL
+- Headers HTTP de seguridad (CSP, HSTS, X-Frame-Options)
+- Cookies y tokens de sesión (HttpOnly, SameSite, Secure)
 - Formularios y endpoints de autenticación
-- Rutas y estructura interna del sitio
+- Rutas y estructura interna del sitio (frontend clonado)
+- Grafos de relaciones OSINT (IP, NS, correos, Whois)
+- Vulnerabilidades de inyección (SQLi, XSS) en entornos controlados
 
 ---
 
 ## Riesgos Identificados
 
-| Riesgo | Nivel | Herramienta que lo detectó |
-|---|---|---|
-| DNSSEC no implementado | Alto | dig |
-| Identidad del registrante oculta | Medio | whois |
-| Dominio joven (< 1 año) | Medio | whois |
-| IP compartida (hosting compartido) | Medio | nslookup |
-| Headers de seguridad HTTP | A verificar | OWASP ZAP |
-| Cookies de sesión inseguras | A verificar | Burp Suite / ZAP |
-| Exposición de frontend | A verificar | HTTrack |
+| Riesgo | Nivel | Herramienta | Estado |
+|---|---|---|---|
+| Content-Security-Policy ausente | Alto | OWASP ZAP | Confirmado |
+| Cookies sin HttpOnly / SameSite / Secure | Alto | OWASP ZAP · Burp Suite | Confirmado |
+| SQL Injection — login bypass | Crítico | Burp Suite (PortSwigger lab) | Confirmado |
+| XSS Almacenado — robo de cookies | Alto | Burp Suite (Juice Shop) | Confirmado |
+| DNSSEC no implementado | Alto | dig | Confirmado |
+| Server Banner expuesto | Medio | OWASP ZAP | Confirmado |
+| Endpoints API y tokens expuestos en JS | Medio | HTTrack + grep | A revisar |
+| Identidad del registrante oculta | Medio | whois | Confirmado |
+| Dominio joven (< 1 año) | Medio | whois | Confirmado |
+| IP compartida (hosting compartido) | Medio | nslookup | Confirmado |
+| Infraestructura DNS mapeada públicamente | Bajo | Maltego CE | Confirmado |
+
+---
+
+## Documentación
+
+El análisis completo se encuentra registrado en el documento **F-PIA Framework**, que incluye:
+
+- **4 tablas HPTesting** (una por herramienta): OWASP ZAP, HTTrack, Maltego CE y Burp Suite
+- **2 tablas LabPInjection**: SQL Injection (login bypass) y XSS Almacenado
+- Metodología PIAP-LLM aplicada a cada prueba
+- Hallazgos, impacto, severidad y recomendaciones de mitigación
 
 ---
 
@@ -103,7 +127,7 @@ Este laboratorio sigue el **Framework PIAP-LLM** — Prompt Injection Analysis a
 
 Todos los análisis se realizaron en **entornos controlados y autorizados**, en cumplimiento de la **Ley 1273 de 2009** (Colombia) sobre delitos informáticos y los principios de ética en seguridad ofensiva que rigen la práctica profesional del pentesting.
 
-> **Nota:** Los análisis activos sobre `latinoamericacomparte.com` se limitaron a consultas DNS públicas (reconocimiento pasivo). Las pruebas con Active Scan se realizaron sobre entornos controlados (DVWA, Juice Shop).
+> **Nota:** Los análisis activos sobre `latinoamericacomparte.com` se limitaron a consultas DNS públicas (reconocimiento pasivo). Las pruebas con Active Scan se realizaron sobre entornos controlados (DVWA, OWASP Juice Shop, PortSwigger Academy).
 
 ---
 
@@ -115,3 +139,5 @@ Todos los análisis se realizaron en **entornos controlados y autorizados**, en 
 | PortSwigger Academy | https://portswigger.net/web-security |
 | OWASP Juice Shop | https://demo.owasp-juice.shop |
 | OWASP ZAP | https://www.zaproxy.org/ |
+| HTTrack Website Copier | https://www.httrack.com/ |
+| Maltego CE | https://www.maltego.com/ |
